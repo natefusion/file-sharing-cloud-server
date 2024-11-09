@@ -1,0 +1,143 @@
+* Commands
+** cp server://<filepath> <filepath>
+*** Client to server
+"cp
+
+server://<filepath>
+<filepath>"
+*** Server to client
+**** Case 2: the server filepath does not exist
+"nack
+file does not exist"
+**** Default:
+"ack"
+"<information about the file for download feedback>"
+[<file contents>]
+** cp -f server://<filepath> <filepath>
+*** Client to server
+"cp
+-f
+server://<filepath>
+<filepath>"
+*** Server to client
+**** Case 1: filepath does not exist
+"nack
+does not exist"
+**** Default:
+"ack"
+"<information about the file for download feedback>"
+[<file contents>]
+** cp <filepath> server://<filepath>
+*** Client to server
+"cp
+
+<filepath>
+server://<filepath>"
+*** Server to client
+**** Case 2: the server filepath already exists
+"nack
+file exists"
+**** Case 3: the parent directory for the server file does not exists
+"nack
+no parent"
+**** Default:
+"ack"
+** cp -f <filepath> server://<filepath>
+*** Client to server
+"cp
+-f
+<filepath>
+server://<filepath>"
+*** Server to client
+**** Case 2: file is locked by another client
+"nack
+file is locked"
+**** Default:
+"ack"
+** rm <filepath>
+*** Client to server
+"rm
+
+<filepath>
+"
+*** Server to client
+**** Case 1: filepath is a directory
+"nack
+is dir"
+**** Case 2: filepath does not exist
+"nack
+does not exist"
+**** Case 3: file is locked by another client
+"nack
+file locked"
+**** Default:
+"ack"
+** rm -d <filepath>
+*** Client to server
+"rm
+-d
+<filepath>
+"
+*** Server to client
+**** Case 1: filepath is a file
+"nack
+is file"
+**** Case 2: filepath does not exist
+"nack
+does not exist"
+**** Case 3: filepath is locked by another client
+**** Default:
+"ack"
+** ls <filepath>
+*** Client to server
+"ls
+
+<filepath>
+"
+*** Server to client
+**** Case 1: filepath does not exist
+"nack
+does not exist"
+**** Default:
+"ack"
+["<ls message>"]
+** mkdir <filepath>
+*** Client to server
+"mkdir
+
+<filepath>
+"
+*** Server to client
+**** Case 1: filepath already exists
+"nack
+already exists"
+**** Default:
+"ack"
+
+
+* Server Design
+** Main thread
+This will run when the server starts.
+While in this state the server will wait for a client to initiate a connection.
+When this happens a new thread will be created and added to the global thread pool.
+The new thread will run the "child thread" code
+** Child thread
+This thread is associated with a particular client that is connected to the server.
+It will wait for the client to send a message.
+When a message is received it is handled based on its contents (see the commands section).
+
+* Client design
+The client is given an IP address from the command line.
+It will attempt to connect at the IP address.
+If the IP address is wrong, the client will exit.
+Otherwise, finish connecting with the server and then wait for user input.
+
+
+
+
+
+
+
+
+
+
