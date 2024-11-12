@@ -1,5 +1,6 @@
 import socket
 import sys
+import threading
 
 # client_host = '127.0.0.1'
 server_host = '127.0.0.1'
@@ -42,28 +43,32 @@ def execute_command_server(connection):
 
 
 def server():
-    dashes = '----> '
-    
+    thread_pool = []
+
+    def server_thread(connection, addr):
+        with connection:
+            print(f'[*] Established connection from IP {addr[0]} port: {addr[1]}')
+            while True:
+                command = connection.recv(BUFFER_SIZE)
+
+                is_valid, error_message = validate_command_server(command)
+
+                if is_valid:
+                    send_ack(connection)
+                    execute_command_server(connection)
+                else:
+                    send_nack(connection, error_message)
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_tcp:
         server_tcp.bind((server_host, port))
-
+        server_tcp.listen(6)
+        print('[*] Waiting for connection')
+        
         while True:
-            server_tcp.listen(6)
-            print('[*] Waiting for connection')
-
             connection, addr = server_tcp.accept()
-            with connection:
-                print(f'[*] Established connection from IP {addr[0]} port: {addr[1]}')
-                while True:
-                    command = connection.recv(BUFFER_SIZE)
-
-                    is_valid, error_message = validate_command_server(command)
-
-                    if is_valid:
-                        send_ack(connection)
-                        execute_command_server(connection)
-                    else:
-                        send_nack(connection, error_message)
+            t = threading.Thread(target=server_thread, args=[connection, addr])
+            t.start()
+            thread_pool.append(t)
 
 
 # Client functions
