@@ -1,11 +1,45 @@
 import socket
 import sys
 
-client_host = '127.0.0.1'
+# client_host = '127.0.0.1'
 server_host = '127.0.0.1'
 port = 3300 # 3389
 
 BUFFER_SIZE = 1024
+
+# Server functions
+
+def validate_command_server(message):
+    def validate_cp():
+        pass
+    def validate_rm():
+        pass
+    def validate_ls():
+        pass
+    def validate_mkdir():
+        pass
+    pass
+
+
+def send_nack(connection, error_message):
+    pass
+
+
+def send_ack(connection):
+    pass
+
+
+def receive_command(connection):
+    def receive_cp():
+        pass
+    def receive_rm():
+        pass
+    def receive_ls():
+        pass
+    def receive_mkdir():
+        pass
+    pass
+
 
 def server():
     dashes = '----> '
@@ -21,40 +55,85 @@ def server():
             with connection:
                 print(f'[*] Established connection from IP {addr[0]} port: {addr[1]}')
                 while True:
-                    data = connection.recv(BUFFER_SIZE)
+                    command = connection.recv(BUFFER_SIZE)
 
-                    if not data:
-                        break
+                    is_valid, error_message = validate_command_server(command)
+
+                    if is_valid:
+                        send_ack(connection)
+                        receive_command(connection)
                     else:
-                        print('[*] Data received: {}'.format(data.decode('utf-8')))
+                        send_nack(connection, error_message)
 
-                    connection.send(dashes.encode('utf-8') + data)
+
+# Client functions
+
+def validate_command_client(message):
+    def validate_cp():
+        pass
+    def validate_rm():
+        pass
+    def validate_ls():
+        pass
+    def validate_mkdir():
+        pass
+    pass
+
+
+def is_ack(message):
+    pass
+
+
+def is_nack(message):
+    pass
+
+
+def get_nack_message(message):
+    pass
+
+
+def execute_command(message, client_tcp):
+    def execute_cp():
+        pass
+    def execute_rm():
+        pass
+    def execute_ls():
+        pass
+    def execute_mkdir():
+        pass
+    pass
 
                     
-def client():
-    def setup_connection(message):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_tcp:
-            client_tcp.connect((client_host, port))
-            client_tcp.send(message.encode('utf-8'))
-            data = client_tcp.recv(BUFFER_SIZE)
-            yield print(f'The message was received from the server: {data.decode("utf-8")}')
+def client(ip):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_tcp:
+        client_tcp.connect((ip, port))
+        while True:
+            command = input('> ')
+            if command == 'q':
+                quit()
 
-    while True:
-        message = input('enter a message or q for quit: ')
-        if message == 'q':
-            quit()
+            is_valid, error_message = validate_command_client(command)
+            if is_valid:
+                client_tcp.send(command.encode('utf-8'))
+                data = client_tcp.recv(BUFFER_SIZE)
+                
+                if is_ack(data):
+                    execute_command(command, client_tcp)
+                elif is_nack(data):
+                    print('Error: ', get_nack_message(data))
+                else:
+                    print('huh?')
+            else:
+                print("Error: ", error_message)
             
-        next(setup_connection(message))
-
 
 if __name__ == '__main__':
     if len(sys.argv) >= 2:
         if sys.argv[1] == 'server':
             server()
         elif sys.argv[1] == 'client':
-            client()
+            client(sys.argv[2])
         else:
             print(":(")
     else:
-        print(":(")
-    
+        print(":(")    
