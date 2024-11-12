@@ -29,14 +29,14 @@ def send_ack(connection):
     pass
 
 
-def receive_command(connection):
-    def receive_cp():
+def execute_command_server(connection):
+    def execute_cp():
         pass
-    def receive_rm():
+    def execute_rm():
         pass
-    def receive_ls():
+    def execute_ls():
         pass
-    def receive_mkdir():
+    def execute_mkdir():
         pass
     pass
 
@@ -61,7 +61,7 @@ def server():
 
                     if is_valid:
                         send_ack(connection)
-                        receive_command(connection)
+                        execute_command_server(connection)
                     else:
                         send_nack(connection, error_message)
 
@@ -92,7 +92,7 @@ def get_nack_message(message):
     pass
 
 
-def execute_command(message, client_tcp):
+def execute_command_client(message, client_tcp):
     def execute_cp():
         pass
     def execute_rm():
@@ -118,7 +118,7 @@ def client(ip):
                 data = client_tcp.recv(BUFFER_SIZE)
                 
                 if is_ack(data):
-                    execute_command(command, client_tcp)
+                    execute_command_client(command, client_tcp)
                 elif is_nack(data):
                     print('Error: ', get_nack_message(data))
                 else:
