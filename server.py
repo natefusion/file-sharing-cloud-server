@@ -6,7 +6,7 @@ import threading
 import os
 import hashlib
 import time
-import pandas as pd
+import pickle
 
 client_host = '34.71.63.74'
 port = 3300
@@ -179,9 +179,8 @@ def start_server():
 
 
 def save_metrics():
-    df = pd.DataFrame(metrics)
-    df.to_csv('transfer_metrics.csv', index=False)
-
+    with open('transfer_metrics.pkl', 'wb') as f:
+        pickle.dump(metrics, f)
 
 if __name__ == "__main__":
     start_server()
