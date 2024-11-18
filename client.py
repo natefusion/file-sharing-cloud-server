@@ -124,7 +124,7 @@ def main():
     client_socket.connect((client_host, port))
 
     # Implement authentication
-    authenticate(client_socket)
+    # authenticate(client_socket)
 
     # Example usage for file upload, download and performance evaluation
     upload_file(client_socket, "example.txt")

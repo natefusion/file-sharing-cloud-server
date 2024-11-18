@@ -43,11 +43,11 @@ def handle_client(client_socket, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
     client_connections[addr] = client_socket
 
-    if not authenticate(client_socket):
-        client_socket.close()
-        del client_connections[addr]
-        print(f"[DISCONNECT] {addr} disconnected due to authentication failure.")
-        return
+    # if not authenticate(client_socket):
+    #     client_socket.close()
+    #     del client_connections[addr]
+    #     print(f"[DISCONNECT] {addr} disconnected due to authentication failure.")
+    #     return
 
     while True:
         try:
