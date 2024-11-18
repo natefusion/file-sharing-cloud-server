@@ -6,7 +6,7 @@ import os
 import time
 import hashlib
 
-client_host = '34.71.63.74'
+client_host = '34.71.63.74' #REPLACE WITH THE EXTERNAL IP ADDRESS OF THE RUNNING INSTANCE
 port = 3300
 BUFFER_SIZE = 1024
 
@@ -112,10 +112,15 @@ def delete_subfolder(client_socket, folder_name):
 
 
 def authenticate(client_socket):
+    # Prompt for username and password before generating the hash.
+    #Username "admin"
+    #Password is "password"
     username = input("Enter username: ")
     password = input("Enter password: ")
-    # Hash the password before sending it (don't send plain text password)
+
     password_hash = hashlib.sha256(password.encode()).hexdigest()
+
+    # Send the authentication command with the username and hashed password
     send_command(client_socket, f"AUTH {username} {password_hash}")
 
 
@@ -124,17 +129,17 @@ def main():
     client_socket.connect((client_host, port))
 
     # Implement authentication
-    # authenticate(client_socket)
+    authenticate(client_socket)
 
     # Example usage for file upload, download and performance evaluation
-    upload_file(client_socket, "example.txt")
-    download_file(client_socket, "example.txt")
+    upload_file(client_socket, "C:\\Users\\kyler\\Downloads\\example.txt") #PUT FILE HERE
+    download_file(client_socket, "C:\\Users\\kyler\\Downloads\\example.txt") #PUT FILE HERE
 
     # Send command to list files
     send_command(client_socket, "DIR")
 
     # New functionalities
-    delete_file(client_socket, "example.txt")
+    delete_file(client_socket, "C:\\Users\\kyler\\Downloads\\example.txt") #PUT FILE HERE
     create_subfolder(client_socket, "new_folder")
     delete_subfolder(client_socket, "new_folder")
 
@@ -143,3 +148,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
