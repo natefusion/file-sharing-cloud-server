@@ -8,12 +8,12 @@ import hashlib
 import time
 import pickle
 
-client_host = '34.71.63.74'
+client_host = '34.71.63.74' #REPLACE WITH THE EXTERNAL IP ADDRESS OF THE RUNNING INSTANCE
 port = 3300
 BUFFER_SIZE = 1024
 
 stored_credentials = {
-    "admin": "5e884898da28047151d0e56f8dc6292773603d0d3f0e8c8b70a7c9574e2e99b9"  # Hash for 'password'
+    "admin": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"  # Hash for 'password'
 }
 
 # Global data structure for storing client information and metrics
