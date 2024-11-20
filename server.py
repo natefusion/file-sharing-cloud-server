@@ -80,7 +80,7 @@ def validate_command(message):
             if cmd[2].startswith('server://'):
                 handle_err(SERVER_ROOT.joinpath(cmd[2][9:]).is_file(), expected_len, len(cmd), 'File does not exist')
             elif cmd[3].startswith('server://'):
-                handle_err(not SERVER_ROOT.joinpath(cmd[3][9:]).parent.is_dir(), expected_len, len(cmd), 'Parent directory does not exist')
+                handle_err(SERVER_ROOT.joinpath(cmd[3][9:]).parent.is_dir(), expected_len, len(cmd), 'Parent directory does not exist')
         else:
             expected_len = 3
             command = Command(cmd[0], cmd[1], cmd[2], None)
@@ -196,8 +196,6 @@ def handle_client(client_socket, addr):
 
         if is_valid:
             send_ack(client_socket)
-            # data = client_socket.recv(1024).decode()
-            # if data == 'ACK':
             execute_command(client_socket, command)
         else:
             send_nack(client_socket, error_message)
