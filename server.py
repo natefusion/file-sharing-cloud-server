@@ -4,7 +4,6 @@
 import socket
 import threading
 import os
-import hashlib
 import time
 import pickle
 from pathlib import Path
@@ -54,43 +53,33 @@ def validate_command(message):
     command = None
     error_message = None
     
-    def handle_err(cond, expected_len, actual_len, msg):
+    def handle_err(cond, msg):
         nonlocal is_valid
-        nonlocal command
         nonlocal error_message
-        if expected_len != actual_len:
-            is_valid = False
-            error_message = f'Invalid number of arguments, wanted {expected_len}, got {actual_len}'
-        elif cond:
+        if cond:
             is_valid = True
         else:
             is_valid = False
             error_message = msg
 
     cmd = message.split(' ')
-    actual_len = len(cmd)
     if 'cp' == cmd[0]:
         # [0] [1] [2] [3]
         # cp  -f   a   b
         # cp   a   b
 
         if cmd[1] == '-f':
-            expected_len = 4
             command = Command(cmd[0], cmd[2], cmd[3], cmd[1])
             if cmd[2].startswith('server://'):
-                handle_err(SERVER_ROOT.joinpath(cmd[2][9:]).is_file(), expected_len, len(cmd), 'File does not exist')
+                handle_err(SERVER_ROOT.joinpath(cmd[2][9:]).is_file(), 'File does not exist')
             elif cmd[3].startswith('server://'):
-                handle_err(SERVER_ROOT.joinpath(cmd[3][9:]).parent.is_dir(), expected_len, len(cmd), 'Parent directory does not exist')
+                handle_err(SERVER_ROOT.joinpath(cmd[3][9:]).parent.is_dir(), 'Parent directory does not exist')
         else:
-            expected_len = 3
             command = Command(cmd[0], cmd[1], cmd[2], None)
             if cmd[1].startswith('server://'):
-                handle_err(SERVER_ROOT.joinpath(cmd[1][9:]).is_file(), expected_len, len(cmd), 'File, does not exist')
+                handle_err(SERVER_ROOT.joinpath(cmd[1][9:]).is_file(), 'File, does not exist')
             elif cmd[2].startswith('server://'):
-                if expected_len != actual_len:
-                    is_valid = False
-                    error_message = f'Invalid number of arguments, wanted {expected_len}, got {actual_len}'
-                elif not SERVER_ROOT.joinpath(cmd[2][9:]).parent.is_dir():
+                if not SERVER_ROOT.joinpath(cmd[2][9:]).parent.is_dir():
                     is_valid = False
                     error_message = 'Parent directory does not exist'
                 elif SERVER_ROOT.joinpath(cmd[2][9:]).is_file():
@@ -103,29 +92,22 @@ def validate_command(message):
         # rm  -d   a
         # rm  a
         if cmd[1] == '-d':
-            expected_len = 3
             command = Command(cmd[0], cmd[2], None, cmd[1])
-            handle_err(len(os.listdir(SERVER_ROOT.joinpath(cmd[2]))) == 0, expected_len, len(cmd), 'Directory is not empty')
+            handle_err(len(os.listdir(SERVER_ROOT.joinpath(cmd[2]))) == 0, 'Directory is not empty')
         else:
-            expected_len = 2
             command = Command(cmd[0], cmd[1], None, None)
-            handle_err(SERVER_ROOT.joinpath(cmd[1]).is_file(), expected_len, len(cmd), 'File does not exist')
+            handle_err(SERVER_ROOT.joinpath(cmd[1]).is_file(), 'File does not exist')
     elif 'ls' == cmd[0]:
         # [0] [1]
         # ls   a
-        expected_len = 2
         command = Command(cmd[0], cmd[1], None, None)
-        handle_err(SERVER_ROOT.joinpath(cmd[1]).is_dir(), expected_len, len(cmd), 'Not a directory')
+        handle_err(SERVER_ROOT.joinpath(cmd[1]).is_dir(), 'Not a directory')
     elif 'mkdir' == cmd[0]:
-        expected_len = 2
         command = Command(cmd[0], cmd[1], None, None)
         path = SERVER_ROOT.joinpath(cmd[1])
         a = path.parent.is_dir()
         b = not path.is_dir()
-        if expected_len != len(cmd):
-            is_valid = False
-            error_message = f'Invalid number of arguments, wanted {expected_len}, got {len(cmd)}'
-        elif a and b:
+        if a and b:
             is_valid = True
         elif not a:
             is_valid = False
@@ -133,9 +115,6 @@ def validate_command(message):
         elif not b:
             is_valid = False
             error_message = 'directory already exists'
-    else:
-        is_valid = False
-        error_message = f'Unknown command: {words[0]}'
 
     print(is_valid, error_message)
     assert(is_valid != None)
