@@ -7,10 +7,13 @@ import os
 import hashlib
 import time
 import pickle
+from pathlib import Path
 
-client_host = '34.71.63.74' #REPLACE WITH THE EXTERNAL IP ADDRESS OF THE RUNNING INSTANCE
+host = '34.71.63.74' #REPLACE WITH THE EXTERNAL IP ADDRESS OF THE RUNNING INSTANCE
 port = 3300
 BUFFER_SIZE = 1024
+
+SERVER_ROOT = Path('/server/')
 
 stored_credentials = {
     "admin": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"  # Hash for 'password'
@@ -24,6 +27,13 @@ metrics = {
     "file_transfer_times": [],
     "system_response_times": [],  # New metric for system response time
 }
+
+class Command:
+    def __init__(self, name, arg1, arg2, flag):
+        self.name = name
+        self.flag = flag
+        self.arg1 = arg1
+        self.arg2 = arg2
 
 
 def authenticate(client_socket):
@@ -39,6 +49,131 @@ def authenticate(client_socket):
     return False
 
 
+def validate_command(message):
+    is_valid = None
+    command = None
+    error_message = None
+    
+    def handle_err(cond, expected_len, actual_len, msg):
+        nonlocal is_valid
+        nonlocal command
+        nonlocal error_message
+        if expected_len != actual_len:
+            is_valid = False
+            error_message = f'Invalid number of arguments, wanted {expected_len}, got {actual_len}'
+        elif cond:
+            is_valid = True
+        else:
+            is_valid = False
+            error_message = msg
+
+    cmd = message.split(' ')
+    actual_len = len(cmd)
+    if 'cp' == cmd[0]:
+        # [0] [1] [2] [3]
+        # cp  -f   a   b
+        # cp   a   b
+
+        if cmd[1] == '-f':
+            expected_len = 4
+            command = Command(cmd[0], cmd[2], cmd[3], cmd[1])
+            if cmd[2].startswith('server://'):
+                handle_err(SERVER_ROOT.joinpath(cmd[2][9:]).is_file(), expected_len, len(cmd), 'File does not exist')
+            elif cmd[3].startswith('server://'):
+                handle_err(not SERVER_ROOT.joinpath(cmd[3][9:]).parent.is_dir(), expected_len, len(cmd), 'Parent directory does not exist')
+        else:
+            expected_len = 3
+            command = Command(cmd[0], cmd[1], cmd[2], None)
+            if cmd[1].startswith('server://'):
+                handle_err(SERVER_ROOT.joinpath(cmd[1][9:]).is_file(), expected_len, len(cmd), 'File, does not exist')
+            elif cmd[2].startswith('server://'):
+                if expected_len != actual_len:
+                    is_valid = False
+                    error_message = f'Invalid number of arguments, wanted {expected_len}, got {actual_len}'
+                elif not SERVER_ROOT.joinpath(cmd[2][9:]).parent.is_dir():
+                    is_valid = False
+                    error_message = 'Parent directory does not exist'
+                elif SERVER_ROOT.joinpath(cmd[2][9:]).is_file():
+                    is_valid = False
+                    error_message = 'File already exists'
+                else:
+                    is_valid = True
+    elif 'rm' == cmd[0]:
+        # [0] [1] [2]
+        # rm  -d   a
+        # rm  a
+        if cmd[1] == '-d':
+            expected_len = 3
+            command = Command(cmd[0], cmd[2], None, cmd[1])
+            handle_err(len(os.listdir(SERVER_ROOT.joinpath(cmd[2]))) == 0, expected_len, len(cmd), 'Directory is not empty')
+        else:
+            expected_len = 2
+            command = Command(cmd[0], cmd[1], None, None)
+            handle_err(SERVER_ROOT.joinpath(cmd[1]).is_file(), expected_len, len(cmd), 'File does not exist')
+    elif 'ls' == cmd[0]:
+        # [0] [1]
+        # ls   a
+        expected_len = 2
+        command = Command(cmd[0], cmd[1], None, None)
+        handle_err(SERVER_ROOT.joinpath(cmd[1]).is_dir(), expected_len, len(cmd), 'Not a directory')
+    elif 'mkdir' == cmd[0]:
+        expected_len = 2
+        command = Command(cmd[0], cmd[1], None, None)
+        path = SERVER_ROOT.joinpath(cmd[1])
+        a = path.parent.is_dir()
+        b = not path.is_dir()
+        if expected_len != len(cmd):
+            is_valid = False
+            error_message = f'Invalid number of arguments, wanted {expected_len}, got {len(cmd)}'
+        elif a and b:
+            is_valid = True
+        elif not a:
+            is_valid = False
+            error_message = 'Parent directory does not exist'
+        elif not b:
+            is_valid = False
+            error_message = 'directory already exists'
+    else:
+        is_valid = False
+        error_message = f'Unknown command: {words[0]}'
+
+    print(is_valid, error_message)
+    assert(is_valid != None)
+    assert(command != None)
+    if is_valid:
+        assert(error_message == None)
+    else:
+        assert(error_message != None)
+
+    return is_valid, command, error_message
+
+
+def execute_command(socket, cmd):
+    if 'cp' == cmd.name:
+        if cmd.arg1.startswith('server://'):
+            copy_file_to_client(socket, SERVER_ROOT.joinpath(cmd.arg1[9:]))
+        else:
+            copy_file_to_server(socket, SERVER_ROOT.joinpath(cmd.arg2[9:]))
+    elif 'rm' == cmd.name:
+        if cmd.flag == '-d':
+            os.rmdir(SERVER_ROOT.joinpath(cmd.arg1))
+        else:
+            os.remove(SERVER_ROOT.joinpath(cmd.arg1))
+    elif 'ls' == cmd.name:
+        files = '\n'.join(os.listdir(SERVER_ROOT.joinpath(cmd.arg1)))
+        socket.send(files.encode())
+    elif 'mkdir' == cmd.name:
+        os.makedirs(SERVER_ROOT.joinpath(cmd.arg1))
+    
+
+def send_ack(socket):
+    socket.send('ACK'.encode())
+
+    
+def send_nack(socket, msg):
+    socket.send(f'NACK\n{msg}'.encode())
+
+    
 def handle_client(client_socket, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
     client_connections[addr] = client_socket
@@ -50,43 +185,35 @@ def handle_client(client_socket, addr):
     #     return
 
     while True:
-        try:
-            start_response_time = time.time()  # Track system response time
+        start_response_time = time.time()  # Track system response time
 
-            command = client_socket.recv(1024).decode()
-            if command.startswith("UPLOAD"):
-                upload_file(client_socket, command)
-            elif command.startswith("DOWNLOAD"):
-                download_file(client_socket, command)
-            elif command.startswith("DELETE"):
-                delete_file(client_socket, command)
-            elif command.startswith("DIR"):
-                list_files(client_socket)
-            elif command.startswith("SUBFOLDER"):
-                handle_subfolder(client_socket, command)
-            else:
-                client_socket.send(f"Invalid command: {command}".encode())
-        except FileNotFoundError as e:
-            client_socket.send(f"Error: File not found - {e}".encode())
-        except PermissionError as e:
-            client_socket.send(f"Error: Permission denied - {e}".encode())
-        except Exception as e:
-            client_socket.send(f"Unexpected error: {e}".encode())
-            print(f"[ERROR] Unexpected error: {e}")
-        finally:
-            client_socket.close()
-            print(f"[DISCONNECT] {addr} disconnected.")
+        message = client_socket.recv(1024).decode()
 
+        if message == 'q':
+            break
+            
+        is_valid, command, error_message = validate_command(message)
+
+        if is_valid:
+            send_ack(client_socket)
+            # data = client_socket.recv(1024).decode()
+            # if data == 'ACK':
+            execute_command(client_socket, command)
+        else:
+            send_nack(client_socket, error_message)
+                    
+        
     client_socket.close()
     del client_connections[addr]
     print(f"[DISCONNECT] {addr} disconnected.")
 
 
-def upload_file(client_socket, command):
-    _, filename, filesize = command.split()
-    filesize = int(filesize)
-
+def copy_file_to_server(client_socket, filename):
     start_time = time.time()
+    
+    filesize = client_socket.recv(4096)
+    filesize = int(filesize)
+    
     with open(filename, "wb") as f:
         bytes_received = 0
         while bytes_received < filesize:
@@ -99,15 +226,9 @@ def upload_file(client_socket, command):
     upload_rate = (filesize / transfer_time) / 10 ** 6  # Convert to MB/s
     metrics["upload_rate"].append(upload_rate)
     metrics["file_transfer_times"].append(transfer_time)
-    client_socket.send("File uploaded successfully.".encode())
 
 
-def download_file(client_socket, command):
-    _, filename = command.split()
-    if not os.path.exists(filename):
-        client_socket.send("File not found.".encode())
-        return
-
+def copy_file_to_client(client_socket, filename):
     filesize = os.path.getsize(filename)
     client_socket.send(f"{filesize}".encode())
 
@@ -126,49 +247,9 @@ def download_file(client_socket, command):
     metrics["file_transfer_times"].append(transfer_time)
 
 
-def delete_file(client_socket, command):
-    _, filename = command.split()
-    if not os.path.exists(filename):
-        client_socket.send("File not found.".encode())
-        return
-
-    try:
-        os.remove(filename)
-        client_socket.send("File deleted.".encode())
-    except Exception as e:
-        client_socket.send(f"Error deleting file: {str(e)}".encode())
-
-
-def list_files(client_socket):
-    files = "\n".join(os.listdir("."))
-    client_socket.send(files.encode())
-
-
-def handle_subfolder(client_socket, command):
-    _, operation, path = command.split()
-
-    try:
-        if operation == "create":
-            if not os.path.exists(path):
-                os.makedirs(path)
-                client_socket.send("Subfolder created.".encode())
-            else:
-                client_socket.send("Subfolder already exists.".encode())
-        elif operation == "delete":
-            if os.path.exists(path):
-                os.rmdir(path)
-                client_socket.send("Subfolder deleted.".encode())
-            else:
-                client_socket.send("Subfolder not found.".encode())
-        else:
-            client_socket.send("Invalid subfolder operation.".encode())
-    except Exception as e:
-        client_socket.send(f"Error in subfolder operation: {str(e)}".encode())
-
-
 def start_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('0.0.0.0', port))
+    server_socket.bind((host, port))
     server_socket.listen(5)
     print("[SERVER STARTED] Listening on port 3300")
 
@@ -176,6 +257,8 @@ def start_server():
         client_socket, addr = server_socket.accept()
         client_thread = threading.Thread(target=handle_client, args=(client_socket, addr))
         client_thread.start()
+
+    server_socket.close()
 
 
 def save_metrics():
