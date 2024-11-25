@@ -54,23 +54,32 @@ def validate_command(message):
         # cp   a   b
 
         if cmd[1] == '-f':
-            if cmd[2].startswith('server://'):
-                handle_err(Path(cmd[3]).parent.is_dir(), 'Parent directory does not exist')
-
-            elif cmd[3].startswith('server://'):
-                handle_err(Path(cmd[2]).is_file(), 'File does not exist')
-        else:
-            if cmd[1].startswith('server://'):
-                if not Path(cmd[2]).parent.is_dir():
-                    is_valid = False
-                    error_message = 'Parent directory does not exist'
-                elif Path(cmd[2]).is_file():
-                    is_valid = False
-                    error_message = 'File already exists'
+            if len(cmd) == 4:
+                if cmd[2].startswith('server://'):
+                    handle_err(Path(cmd[3]).parent.is_dir(), 'Parent directory does not exist')
+                elif cmd[3].startswith('server://'):
+                    handle_err(Path(cmd[2]).is_file(), 'File does not exist')
                 else:
-                    is_valid = True
-            elif cmd[2].startswith('server://'):
-                handle_err(Path(cmd[1]).is_file(), 'File, does not exist')
+                    handle_err(False, 'Expected at least one filepath to start with server://')
+            else:
+                handle_err(False, f'Expected 4 args, but got {len(cmd)} args')
+        else:
+            if len(cmd) == 3:
+                if cmd[1].startswith('server://'):
+                    if not Path(cmd[2]).parent.is_dir():
+                        is_valid = False
+                        error_message = 'Parent directory does not exist'
+                    elif Path(cmd[2]).is_file():
+                        is_valid = False
+                        error_message = 'File already exists'
+                    else:
+                        is_valid = True
+                elif cmd[2].startswith('server://'):
+                    handle_err(Path(cmd[1]).is_file(), 'File, does not exist')
+                else:
+                    handle_err(False, 'Expected at least one filepath to start with server://')
+            else:
+                handle_err(False, f'Expected 3 args, but got {len(cmd)} args')
 
     elif 'rm' == cmd[0]:
         # [0] [1] [2]
