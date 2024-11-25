@@ -62,7 +62,7 @@ def download_file(client_socket, filepath):  # MH
         response = client_socket.recv(BUFFER_SIZE).decode()
         if response.isdigit():
             filesize = int(response)
-            socket.send('ACK'.encode())
+            client_socket.send('ACK'.encode())
             
             with open(filepath, "wb") as f:
                 bytes_received = 0
@@ -104,7 +104,7 @@ def main():  # MH
                 words = command.split(' ')
                 if words[0] == 'cp':
                     if words[1].startswith('server://'):
-                        download_file(client_socket, words[3])
+                        download_file(client_socket, words[2])
                     else:
                         upload_file(client_socket, words[1])
                 elif command.startswith("ls"):  # MH
