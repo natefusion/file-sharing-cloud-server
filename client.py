@@ -119,10 +119,8 @@ def upload_file(client_socket, filepath):  # MH
             data = f.read(BUFFER_SIZE)
             client_socket.send(data)
             bytes_sent += len(data)
-            print(f'\n\x1b[A\x1b[2K{bytes_sent/filesize*100:.0f}%')
+            print(f'\x1b[A\x1b[2KUpload progress: {bytes_sent/filesize*100:.0f}%')
         end_time = time.time()
-
-        print('\n')
 
     transfer_time = end_time - start_time
     upload_rate = (filesize / transfer_time) / 10**6  # Convert to MB/s
@@ -143,7 +141,7 @@ def download_file(client_socket, filepath):  # MH
             data = client_socket.recv(BUFFER_SIZE)
             bytes_received += len(data)
             f.write(data)
-            print(f'\x1b[A\x1b[2KProgress: {bytes_received/filesize*100:.0f}%')
+            print(f'\x1b[A\x1b[2KDownload progress: {bytes_received/filesize*100:.0f}%')
         end_time = time.time()
 
     transfer_time = end_time - start_time
@@ -165,6 +163,7 @@ def main():  # MH
         while True:
             command = input("> ")
             if command == 'q':
+                client_socket.send('q'.encode())
                 print("Exiting...")
                 break
 

@@ -7,6 +7,7 @@ import os
 import time
 import pickle
 from pathlib import Path
+import uuid
 
 host = '10.142.0.2'
 port = 3389
@@ -20,12 +21,6 @@ stored_credentials = {
 
 # Global data structure for storing client information and metrics
 client_connections = {}
-metrics = {
-    "upload_rate": [],
-    "download_rate": [],
-    "file_transfer_times": [],
-    "system_response_times": [],  # New metric for system response time
-}
 
 class Command:
     def __init__(self, name, arg1, arg2, flag):
@@ -127,12 +122,12 @@ def validate_command(message):
     return is_valid, command, error_message
 
 
-def execute_command(socket, cmd):
+def execute_command(socket, cmd, metrics):
     if 'cp' == cmd.name:
         if cmd.arg1.startswith('server://'):
-            copy_file_to_client(socket, SERVER_ROOT.joinpath(cmd.arg1[9:]))
+            copy_file_to_client(socket, SERVER_ROOT.joinpath(cmd.arg1[9:]), metrics)
         else:
-            copy_file_to_server(socket, SERVER_ROOT.joinpath(cmd.arg2[9:]))
+            copy_file_to_server(socket, SERVER_ROOT.joinpath(cmd.arg2[9:]), metrics)
     elif 'rm' == cmd.name:
         if cmd.flag == '-d':
             os.rmdir(SERVER_ROOT.joinpath(cmd.arg1))
@@ -165,12 +160,20 @@ def handle_client(client_socket, addr):
         print(f"[DISCONNECT] {addr} disconnected due to authentication failure.")
         return
 
+    metrics = {
+        "upload_rate": [],
+        "download_rate": [],
+        "file_transfer_times": [],
+        "system_response_times": [],  # New metric for system response time
+    }
+
     while True:
         start_response_time = time.time()  # Track system response time
 
         message = client_socket.recv(BUFFER_SIZE).decode()
 
         if message == 'q':
+            save_metrics(metrics)
             break
             
         is_valid, command, error_message = validate_command(message)
@@ -179,7 +182,7 @@ def handle_client(client_socket, addr):
             send_ack(client_socket)
             data = client_socket.recv(BUFFER_SIZE).decode()
             if data.startswith('ACK'):
-                execute_command(client_socket, command)
+                execute_command(client_socket, command, metrics)
         else:
             send_nack(client_socket, error_message)
                     
@@ -189,7 +192,7 @@ def handle_client(client_socket, addr):
     print(f"[DISCONNECT] {addr} disconnected.")
 
 
-def copy_file_to_server(client_socket, filename):
+def copy_file_to_server(client_socket, filename, metrics):
     start_time = time.time()
     
     filesize = client_socket.recv(BUFFER_SIZE).decode()
@@ -211,7 +214,7 @@ def copy_file_to_server(client_socket, filename):
     metrics["file_transfer_times"].append(transfer_time)
 
 
-def copy_file_to_client(client_socket, filename):
+def copy_file_to_client(client_socket, filename, metrics):
     filesize = os.path.getsize(filename)
     client_socket.send(f"{filesize}".encode())
 
@@ -248,9 +251,10 @@ def start_server():
     server_socket.close()
 
 
-def save_metrics():
-    with open('transfer_metrics.pkl', 'wb') as f:
+def save_metrics(metrics):
+    with open(SERVER_ROOT.joinpath(f'transfer_metrics-{str(uuid.uuid4())}.pkl'), 'wb') as f:
         pickle.dump(metrics, f)
+
 
 if __name__ == "__main__":
     start_server()
