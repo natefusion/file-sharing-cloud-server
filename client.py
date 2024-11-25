@@ -89,6 +89,9 @@ def validate_command(message):
         handle_err(len(cmd) == 2, f'Expected 2 args, but got {len(cmd)} args')
     elif 'mkdir' == cmd[0]:
         handle_err(len(cmd) == 2, f'Expected 2 args, but got {len(cmd)} args')
+    else:
+        is_valid = False
+        error_message = f'Unknown command: {cmd}'
 
     assert(is_valid != None)
     if is_valid:
