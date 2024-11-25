@@ -100,10 +100,6 @@ def validate_command(message):
 
 
 def upload_file(client_socket, filepath):  # MH
-    if not os.path.exists(filepath):
-        print("File does not exist.")
-        return
-
     filesize = os.path.getsize(filepath)
     client_socket.send(str(filesize).encode())  # MH: Send the filesize as the first message
 
