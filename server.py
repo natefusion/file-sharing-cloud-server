@@ -8,7 +8,7 @@ import time
 import pickle
 from pathlib import Path
 
-host = '35.229.101.87' #REPLACE WITH THE EXTERNAL IP ADDRESS OF THE RUNNING INSTANCE
+host = '10.142.0.2'
 port = 3389
 BUFFER_SIZE = 4096
 
@@ -190,8 +190,10 @@ def handle_client(client_socket, addr):
 def copy_file_to_server(client_socket, filename):
     start_time = time.time()
     
-    filesize = client_socket.recv(BUFFER_SIZE)
+    filesize = client_socket.recv(BUFFER_SIZE).decode()
     filesize = int(filesize)
+
+    send_ack(client_socket)
     
     with open(filename, "wb") as f:
         bytes_received = 0
@@ -210,6 +212,11 @@ def copy_file_to_server(client_socket, filename):
 def copy_file_to_client(client_socket, filename):
     filesize = os.path.getsize(filename)
     client_socket.send(f"{filesize}".encode())
+
+    ack = client_socket.recv(BUFFER_SIZE).decode()
+    if ack != 'ACK':
+        print('did not get ack')
+        return
 
     start_time = time.time()
     with open(filename, "rb") as f:

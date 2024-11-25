@@ -3,7 +3,7 @@ import os
 import time
 import hashlib
 
-# client_host = '35.229.101.87'  # Replace with the external IP address of the running instance
+client_host = '35.229.101.87'  # Replace with the external IP address of the running instance
 port = 3389
 BUFFER_SIZE = 4096
 
@@ -35,6 +35,11 @@ def upload_file(client_socket, filepath):  # MH
         filesize = os.path.getsize(filepath)
         client_socket.send(str(filesize).encode())  # MH: Send the filesize as the first message
 
+        ack = client_socket.recv(BUFFER_SIZE).decode()
+
+        if ack != 'ACK':
+            return
+
         with open(filepath, "rb") as f:
             bytes_sent = 0
             start_time = time.time()
@@ -57,6 +62,8 @@ def download_file(client_socket, filepath):  # MH
         response = client_socket.recv(BUFFER_SIZE).decode()
         if response.isdigit():
             filesize = int(response)
+            socket.send('ACK'.encode())
+            
             with open(filepath, "wb") as f:
                 bytes_received = 0
                 start_time = time.time()
@@ -93,13 +100,13 @@ def main():  # MH
 
             if response.startswith("ACK"):  # MH: Handle commands based on the server's ACK
                 client_socket.send('ACK'.encode())
-                if command.startswith("cp server://"):  # MH
-                    filepath = command.split(" ")[1]
-                    dest = command.split(" ")[2]
-                    download_file(client_socket, dest)
-                elif command.startswith("cp") and "server://" in command:  # MH
-                    src = command.split(" ")[1]
-                    upload_file(client_socket, src)
+
+                words = command.split(' ')
+                if words[0] == 'cp':
+                    if words[1].startswith('server://'):
+                        download_file(client_socket, words[3])
+                    else:
+                        upload_file(client_socket, words[1])
                 elif command.startswith("ls"):  # MH
                     data = client_socket.recv(BUFFER_SIZE).decode()
                     print(data)
