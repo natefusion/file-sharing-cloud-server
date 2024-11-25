@@ -1,66 +1,54 @@
-##WORK IN PROGRESS. I STILL HAVE TO DEBUG THE CODE BUT IT CONNECTS BETWEEN THE SERVER AND CLIENT
-##client_host = '34.71.63.74' NOT '127.0.0.1'. '34.71.63.74 is the external IP for (my) Google Cloud instance. 127.0.0.1 was the local IP
-
 import socket
 import os
 import time
 import hashlib
 
-client_host = '34.71.63.74' #REPLACE WITH THE EXTERNAL IP ADDRESS OF THE RUNNING INSTANCE
+client_host = '34.71.63.74'  # Replace with the external IP address of the running instance
 port = 3300
 BUFFER_SIZE = 1024
 
-
-def send_command(client_socket, command):
+def send_command(client_socket, command):  # MH
     client_socket.send(command.encode())
     response = client_socket.recv(4096).decode()
-    print(response)
+    return response  # MH: Return the server response for flexibility
 
 
-def upload_file(client_socket, filename):
+def upload_file(client_socket, filepath):  # MH
     try:
-        if not os.path.exists(filename):
+        if not os.path.exists(filepath):
             print("File does not exist.")
             return
 
-        filesize = os.path.getsize(filename)
-        send_command(client_socket, f"UPLOAD {filename} {filesize}")
+        filesize = os.path.getsize(filepath)
+        client_socket.send(str(filesize).encode())  # MH: Send the filesize as the first message
 
-        with open(filename, "rb") as f:
+        with open(filepath, "rb") as f:
             bytes_sent = 0
             start_time = time.time()
             while bytes_sent < filesize:
-                data = f.read(4096)
+                data = f.read(BUFFER_SIZE)
                 client_socket.send(data)
                 bytes_sent += len(data)
             end_time = time.time()
 
         transfer_time = end_time - start_time
-        upload_rate = (filesize / transfer_time) / 10 ** 6  # Convert to MB/s
+        upload_rate = (filesize / transfer_time) / 10**6  # Convert to MB/s
         print(f"Upload completed in {transfer_time:.2f} seconds.")
         print(f"Upload rate: {upload_rate:.2f} MB/s")
-    except FileNotFoundError:
-        print(f"Error: File {filename} not found.")
-    except PermissionError:
-        print(f"Error: Permission denied to upload {filename}.")
     except Exception as e:
-        print(f"Unexpected error during file upload: {e}")
-# Similar enhancements can be made to other functions such as download_file(), delete_file(), etc.
+        print(f"Error during file upload: {e}")
 
-def download_file(client_socket, filename):
+
+def download_file(client_socket, filepath):  # MH
     try:
-        # Request the file from the server
-        send_command(client_socket, f"DOWNLOAD {filename}")
         response = client_socket.recv(4096).decode()
-
-        # Check if the server sent a valid file size (indicating the file exists)
         if response.isdigit():
             filesize = int(response)
-            with open(filename, "wb") as f:
+            with open(filepath, "wb") as f:
                 bytes_received = 0
                 start_time = time.time()
                 while bytes_received < filesize:
-                    data = client_socket.recv(4096)
+                    data = client_socket.recv(BUFFER_SIZE)
                     if not data:
                         raise ConnectionError("Connection lost during file download.")
                     bytes_received += len(data)
@@ -72,80 +60,43 @@ def download_file(client_socket, filename):
             print(f"Download completed in {transfer_time:.2f} seconds.")
             print(f"Download rate: {download_rate:.2f} MB/s")
         else:
-            # Handle the server's error response (e.g., "File not found.")
             print(f"Server response: {response}")
-
-    except FileNotFoundError:
-        print(f"Error: Unable to save downloaded file. Check if the directory exists.")
-    except PermissionError:
-        print(f"Error: Permission denied while saving {filename}.")
-    except ConnectionError as ce:
-        print(f"Download failed: {ce}")
     except Exception as e:
-        print(f"Unexpected error during file download: {e}")
+        print(f"Error during file download: {e}")
 
 
-def delete_file(client_socket, filename):
-    try:
-        # Send delete command to the server
-        send_command(client_socket, f"DELETE {filename}")
-        response = client_socket.recv(4096).decode()
+def main():  # MH
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+        client_socket.connect((client_host, port))
+        print("Connected to server.")
 
-        # Check if the server returned an error message
-        if "Error" in response or "not found" in response:
-            print(f"Server response: {response}")
-        else:
-            print(response)  # Confirm successful deletion
+        while True:
+            command = input("> ")
+            if command == 'q':
+                print("Exiting...")
+                break
 
-    except ConnectionError:
-        print("Error: Lost connection to server during delete operation.")
-    except Exception as e:
-        print(f"Unexpected error during file deletion: {e}")
+            response = send_command(client_socket, command)  # MH
 
-
-def create_subfolder(client_socket, folder_name):
-    send_command(client_socket, f"SUBFOLDER create {folder_name}")
-
-
-def delete_subfolder(client_socket, folder_name):
-    send_command(client_socket, f"SUBFOLDER delete {folder_name}")
-
-
-def authenticate(client_socket):
-    # Prompt for username and password before generating the hash.
-    #Username "admin"
-    #Password is "password"
-    username = input("Enter username: ")
-    password = input("Enter password: ")
-
-    password_hash = hashlib.sha256(password.encode()).hexdigest()
-
-    # Send the authentication command with the username and hashed password
-    send_command(client_socket, f"AUTH {username} {password_hash}")
-
-
-def main():
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((client_host, port))
-
-    # Implement authentication
-    authenticate(client_socket)
-
-    # Example usage for file upload, download and performance evaluation
-    upload_file(client_socket, "C:\\Users\\kyler\\Downloads\\example.txt") #PUT FILE HERE
-    download_file(client_socket, "C:\\Users\\kyler\\Downloads\\example.txt") #PUT FILE HERE
-
-    # Send command to list files
-    send_command(client_socket, "DIR")
-
-    # New functionalities
-    delete_file(client_socket, "C:\\Users\\kyler\\Downloads\\example.txt") #PUT FILE HERE
-    create_subfolder(client_socket, "new_folder")
-    delete_subfolder(client_socket, "new_folder")
-
-    client_socket.close()
+            if response == "ACK":  # MH: Handle commands based on the server's ACK
+                if command.startswith("cp server://"):  # MH
+                    filepath = command.split(" ")[1]
+                    dest = command.split(" ")[2]
+                    download_file(client_socket, dest)
+                elif command.startswith("cp") and "server://" in command:  # MH
+                    src = command.split(" ")[1]
+                    upload_file(client_socket, src)
+                elif command.startswith("ls"):  # MH
+                    print(client_socket.recv(4096).decode())  # MH: Print server response
+                elif command.startswith("rm"):  # MH
+                    print("rm acknowledged, no further action.")  # MH
+                elif command.startswith("mkdir"):  # MH
+                    print("mkdir acknowledged, no further action.")  # MH
+            elif response == "NACK":  # MH
+                print("Command not acknowledged by the server.")  # MH
+            else:
+                print(f"Unexpected server response: {response}")  # MH
 
 
 if __name__ == "__main__":
     main()
-
