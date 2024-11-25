@@ -8,9 +8,9 @@ import time
 import pickle
 from pathlib import Path
 
-host = '34.71.63.74' #REPLACE WITH THE EXTERNAL IP ADDRESS OF THE RUNNING INSTANCE
-port = 3300
-BUFFER_SIZE = 1024
+host = '35.229.101.87' #REPLACE WITH THE EXTERNAL IP ADDRESS OF THE RUNNING INSTANCE
+port = 3389
+BUFFER_SIZE = 4096
 
 SERVER_ROOT = Path('/server/')
 
@@ -36,7 +36,7 @@ class Command:
 
 
 def authenticate(client_socket):
-    command = client_socket.recv(1024).decode()
+    command = client_socket.recv(BUFFER_SIZE).decode()
     if command.startswith("AUTH"):
         _, username, password_hash = command.split()
         if username in stored_credentials and stored_credentials[username] == password_hash:
@@ -166,7 +166,7 @@ def handle_client(client_socket, addr):
     while True:
         start_response_time = time.time()  # Track system response time
 
-        message = client_socket.recv(1024).decode()
+        message = client_socket.recv(BUFFER_SIZE).decode()
 
         if message == 'q':
             break
@@ -175,7 +175,9 @@ def handle_client(client_socket, addr):
 
         if is_valid:
             send_ack(client_socket)
-            execute_command(client_socket, command)
+            data = client_socket.recv(BUFFER_SIZE).decode()
+            if data.startswith('ACK'):
+                execute_command(client_socket, command)
         else:
             send_nack(client_socket, error_message)
                     
@@ -188,13 +190,13 @@ def handle_client(client_socket, addr):
 def copy_file_to_server(client_socket, filename):
     start_time = time.time()
     
-    filesize = client_socket.recv(4096)
+    filesize = client_socket.recv(BUFFER_SIZE)
     filesize = int(filesize)
     
     with open(filename, "wb") as f:
         bytes_received = 0
         while bytes_received < filesize:
-            data = client_socket.recv(4096)
+            data = client_socket.recv(BUFFER_SIZE)
             bytes_received += len(data)
             f.write(data)
     end_time = time.time()
@@ -213,7 +215,7 @@ def copy_file_to_client(client_socket, filename):
     with open(filename, "rb") as f:
         bytes_sent = 0
         while bytes_sent < filesize:
-            data = f.read(4096)
+            data = f.read(BUFFER_SIZE)
             client_socket.send(data)
             bytes_sent += len(data)
     end_time = time.time()

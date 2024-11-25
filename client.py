@@ -3,13 +3,26 @@ import os
 import time
 import hashlib
 
-client_host = '34.71.63.74'  # Replace with the external IP address of the running instance
-port = 3300
-BUFFER_SIZE = 1024
+# client_host = '35.229.101.87'  # Replace with the external IP address of the running instance
+port = 3389
+BUFFER_SIZE = 4096
+
+def authenticate(client_socket):
+    # Prompt for username and password before generating the hash.
+    #Username "admin"
+    #Password is "password"
+    username = input("Enter username: ")
+    password = input("Enter password: ")
+
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+
+    # Send the authentication command with the username and hashed password
+    send_command(client_socket, f"AUTH {username} {password_hash}")
+
 
 def send_command(client_socket, command):  # MH
     client_socket.send(command.encode())
-    response = client_socket.recv(4096).decode()
+    response = client_socket.recv(BUFFER_SIZE).decode()
     return response  # MH: Return the server response for flexibility
 
 
@@ -41,7 +54,7 @@ def upload_file(client_socket, filepath):  # MH
 
 def download_file(client_socket, filepath):  # MH
     try:
-        response = client_socket.recv(4096).decode()
+        response = client_socket.recv(BUFFER_SIZE).decode()
         if response.isdigit():
             filesize = int(response)
             with open(filepath, "wb") as f:
@@ -78,7 +91,8 @@ def main():  # MH
 
             response = send_command(client_socket, command)  # MH
 
-            if response == "ACK":  # MH: Handle commands based on the server's ACK
+            if response.startswith("ACK"):  # MH: Handle commands based on the server's ACK
+                client_socket.send('ACK'.encode())
                 if command.startswith("cp server://"):  # MH
                     filepath = command.split(" ")[1]
                     dest = command.split(" ")[2]
@@ -87,12 +101,13 @@ def main():  # MH
                     src = command.split(" ")[1]
                     upload_file(client_socket, src)
                 elif command.startswith("ls"):  # MH
-                    print(client_socket.recv(4096).decode())  # MH: Print server response
+                    data = client_socket.recv(BUFFER_SIZE).decode()
+                    print(data)
                 elif command.startswith("rm"):  # MH
                     print("rm acknowledged, no further action.")  # MH
                 elif command.startswith("mkdir"):  # MH
                     print("mkdir acknowledged, no further action.")  # MH
-            elif response == "NACK":  # MH
+            elif response.startswith("NACK"):  # MH
                 print("Command not acknowledged by the server.")  # MH
             else:
                 print(f"Unexpected server response: {response}")  # MH
