@@ -12,7 +12,7 @@ host = '10.142.0.2'
 port = 3389
 BUFFER_SIZE = 4096
 
-SERVER_ROOT = Path('/server/')
+SERVER_ROOT = Path('/home/nthnpiel/server/')
 
 stored_credentials = {
     "admin": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"  # Hash for 'password'
@@ -40,10 +40,10 @@ def authenticate(client_socket):
     if command.startswith("AUTH"):
         _, username, password_hash = command.split()
         if username in stored_credentials and stored_credentials[username] == password_hash:
-            client_socket.send("Authentication successful.".encode())
+            client_socket.send("ACK".encode())
             return True
         else:
-            client_socket.send("Authentication failed.".encode())
+            client_socket.send("NACK\nAuthentication failed.".encode())
             return False
     return False
 
@@ -157,11 +157,11 @@ def handle_client(client_socket, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
     client_connections[addr] = client_socket
 
-    # if not authenticate(client_socket):
-    #     client_socket.close()
-    #     del client_connections[addr]
-    #     print(f"[DISCONNECT] {addr} disconnected due to authentication failure.")
-    #     return
+    if not authenticate(client_socket):
+        client_socket.close()
+        del client_connections[addr]
+        print(f"[DISCONNECT] {addr} disconnected due to authentication failure.")
+        return
 
     while True:
         start_response_time = time.time()  # Track system response time

@@ -18,7 +18,14 @@ def authenticate(client_socket):
     password_hash = hashlib.sha256(password.encode()).hexdigest()
 
     # Send the authentication command with the username and hashed password
-    send_command(client_socket, f"AUTH {username} {password_hash}")
+    client_socket.send(f"AUTH {username} {password_hash}".encode())
+
+    ack = client_socket.recv(BUFFER_SIZE).decode()
+    if ack.startswith('ACK'):
+        return True
+    else:
+        print('Error: ', ack.split('\n')[1:])
+        return False
 
 
 def send_command(client_socket, command):  # MH
@@ -149,6 +156,10 @@ def download_file(client_socket, filepath):  # MH
 def main():  # MH
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect((client_host, port))
+
+        if not authenticate(client_socket):
+            quit()
+            
         print("Connected to server.")
 
         while True:
