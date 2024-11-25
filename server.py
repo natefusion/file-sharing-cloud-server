@@ -140,6 +140,8 @@ def execute_command(socket, cmd):
             os.remove(SERVER_ROOT.joinpath(cmd.arg1))
     elif 'ls' == cmd.name:
         files = '\n'.join(os.listdir(SERVER_ROOT.joinpath(cmd.arg1)))
+        if files == '':
+            files = 'Directory is empty'
         socket.send(files.encode())
     elif 'mkdir' == cmd.name:
         os.makedirs(SERVER_ROOT.joinpath(cmd.arg1))
