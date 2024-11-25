@@ -214,8 +214,7 @@ def copy_file_to_client(client_socket, filename):
     client_socket.send(f"{filesize}".encode())
 
     ack = client_socket.recv(BUFFER_SIZE).decode()
-    if ack != 'ACK':
-        print('did not get ack')
+    if not ack.startswith('ACK'):
         return
 
     start_time = time.time()
