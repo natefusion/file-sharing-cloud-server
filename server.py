@@ -160,11 +160,12 @@ def handle_client(client_socket, addr):
         print(f"[DISCONNECT] {addr} disconnected due to authentication failure.")
         return
 
-    # upload_rate
-    # download_rate
-    # file_transfer_times
-    # system_response_times (New metric for system response time)
-    metrics = {}
+    metrics = {
+        "upload_rate": [],
+        "download_rate": [],
+        "file_transfer_times": [],
+        "system_response_times": [],  # New metric for system response time
+    }
 
     while True:
         start_response_time = time.time()  # Track system response time
@@ -251,7 +252,12 @@ def start_server():
 
 
 def save_metrics(metrics):
-    if (len(metrics) > 0):
+    uploads = len(metrics['upload_rate']) > 0
+    downloads = len(metrics['download_rate']) > 0
+    transfer = len(metrics['file_transfer_times']) > 0
+    response = len(metrics['system_response_times']) > 0
+
+    if uploads or downloads or transfer or response:
         with open(SERVER_ROOT.joinpath(f'transfer_metrics-{str(uuid.uuid4())}.pkl'), 'wb') as f:
             pickle.dump(metrics, f)
 
