@@ -168,10 +168,9 @@ def handle_client(client_socket, addr):
     }
 
     while True:
-        start_response_time = time.time()  # Track system response time
-
         message = client_socket.recv(BUFFER_SIZE).decode()
-
+        start_response_time = time.time()  # Track system response time
+        
         if message == 'q':
             save_metrics(metrics)
             break
@@ -181,11 +180,14 @@ def handle_client(client_socket, addr):
         if is_valid:
             send_ack(client_socket)
             data = client_socket.recv(BUFFER_SIZE).decode()
+            end_response_time = time.time()
             if data.startswith('ACK'):
                 execute_command(client_socket, command, metrics)
         else:
+            end_response_time = time.time()
             send_nack(client_socket, error_message)
-                    
+
+        metrics['system_response_times'].append((command.name, end_response_time - start_response_time))
         
     client_socket.close()
     del client_connections[addr]
