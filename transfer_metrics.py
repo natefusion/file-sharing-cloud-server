@@ -1,66 +1,56 @@
-#import libraries for data manipulation and visualization
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn import preprocessing
 
+# put path for metrics here
+fname = ''
 
-#import transport metrics
 import pickle
-with open('transfer_metrics.pkl', 'rb') as f:
+with open(fname, 'rb') as f:
     metrics = pickle.load(f)
 
-#create data frame using the imported data
-ds = pd.DataFrame(metrics)
-#print first five rows of ds
-head(ds)
+upload_rate = metrics['upload_rate']
+download_rate = metrics['download_rate']
+file_transfer_times = metrics['file_transfer_times']
+system_response_times = [x[1] for x in metrics['system_response_times']]
 
-var = list(ds.columns())
-val = list(ds.values())
+cp_response = []
+ls_response = []
+rm_response = []
+mkdir_response = []
+for x in metrics['system_response_times']:
+    if x[0] == 'cp':
+        cp_response.append(x[1])
+    elif x[0] == 'ls':
+        ls_response.append(x[1])
+    elif x[0] == 'rm':
+        rm_response.append(x[1])
+    elif x[0] == 'mkdir':
+        mkdir_response.append(x[1])
 
-#create plots for each var
-#upload rate
-plt.plot(upload_rate, marker = 'o:k', mec = 'hotpink')
-plt.title('Upload Rate')
-plt.xlabel('Packet')
+
+rate_labels = ['Upload rate', 'Download rate']
+rate_avgs = [np.mean(upload_rate), np.mean(download_rate)]
+plt.bar(rate_labels, rate_avgs)
+plt.xlabel('Averages')
 plt.ylabel('Rate (MB/s)')
 plt.show()
 
-#download rate
-plt.plot(download_rate, marker = 'o:k', mec = 'hotpink')
-plt.title('Download Rate')
-plt.xlabel('Packet')
+plt.boxplot((upload_rate, download_rate), labels=rate_labels, showfliers=False)
 plt.ylabel('Rate (MB/s)')
 plt.show()
 
-#transfer time
-plt.plot(file_transfer_times, marker = 'o:k', mec = 'hotpink')
-plt.title('File Transfer Times')
-plt.xlabel('Packet')
-plt.ylabel('Total transfer/packet')
+response_labels = ['cp', 'rm', 'ls', 'mkdir', 'All']
+response_avgs = [np.mean(cp_response), np.mean(rm_response), np.mean(ls_response), np.mean(mkdir_response), np.mean(system_response_times)]
+plt.bar(response_labels, response_avgs)
+plt.xlabel('Averages')
+plt.ylabel('Response Time (s)')
 plt.show()
 
-#response time
-plt.plot(system_response_times, marker = 'o:k', mec = 'hotpink')
-plt.title('System Response Times')
-plt.xlabel('Packet')
-plt.ylabel('System response/packet')
+times_run = [len(cp_response), len(ls_response), len(rm_response), len(mkdir_response)]
+plt.pie(times_run, labels=response_labels[0:4], autopct='%1.1f%%')
+plt.title('Times run')
 plt.show()
 
-
-#take the mean value for each of the columns
-var_means = val.mean()
-print(var_means)
-
-#average metrics for each variable
-plt.barh(var, var_means, color = 'pink', width = 0.4)
-plt.xticks(rotation = 45)
-# add annotations
-for i, v in enumerate(var_means):
-    plt.annotate(str(v), xy=(i, v), ha='center', va='bottom')
-
-plt.title('Average Metrics for Each Variable')
-plt.xlabel('Variable')
-plt.ylabel('Average Value')
+plt.boxplot((cp_response, rm_response, ls_response, mkdir_response, system_response_times), showfliers=False, labels=response_labels)
+plt.ylabel('Response Time (s)')
 plt.show()
