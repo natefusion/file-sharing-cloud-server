@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # put path for metrics here
-fname = ''
+fname = 'transfer_metrics-25719267-8b18-4866-b539-49be346eee27.pkl'
 
 import pickle
 with open(fname, 'rb') as f:
